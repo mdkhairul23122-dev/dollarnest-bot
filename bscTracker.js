@@ -15,7 +15,7 @@ class MultiChainTracker {
     this.ethQueue = [];
     this.lastBscBlock = 0;
     this.lastEthBlock = 0;
-    this.lastNetworkServed = 'ETH'; // Alternates between BSC and ETH
+    this.lastNetworkServed = 'ETH';
     this.isScanning = false;
   }
 
@@ -40,7 +40,7 @@ class MultiChainTracker {
   }
 
   /**
-   * Scan BSC blocks for real USDT BEP-20 transfers
+   * Scan BSC blocks for real USDT BEP-20 transfers (0.1 - 0.5 USDT)
    */
   async scanBscBlocks() {
     try {
@@ -100,19 +100,19 @@ class MultiChainTracker {
   }
 
   /**
-   * Scan Ethereum blocks for real USDC ERC-20 transfers
+   * Scan Ethereum blocks for real USDC ERC-20 transfers ($20+ USDC)
    */
   async scanEthBlocks() {
     try {
       const currentBlock = await this.ethProvider.getBlockNumber();
       if (!currentBlock) return;
 
-      if (!this.lastEthBlock || (currentBlock - this.lastEthBlock) > 15) {
-        this.lastEthBlock = currentBlock - 4;
+      if (!this.lastEthBlock || (currentBlock - this.lastEthBlock) > 20) {
+        this.lastEthBlock = currentBlock - 5;
       }
 
       const startBlock = this.lastEthBlock + 1;
-      const endBlock = Math.min(currentBlock, startBlock + 3);
+      const endBlock = Math.min(currentBlock, startBlock + 4);
       if (startBlock > currentBlock) {
         if (this.ethQueue.length === 0) this.lastEthBlock = currentBlock - 8;
         return;
@@ -173,7 +173,9 @@ class MultiChainTracker {
   }
 
   /**
-   * Alternates 50/50 between BSC USDT and Ethereum USDC payouts
+   * Alternates 50/50:
+   * - BSC USDT: $0.10 - $0.50 USDT
+   * - ETH USDC: Minimum $20.00 USDC ($20 - $85 USDC)
    */
   async getNextPayout() {
     if (this.bscQueue.length === 0 || this.ethQueue.length === 0) {
@@ -182,7 +184,6 @@ class MultiChainTracker {
 
     let payout = null;
 
-    // Alternate: If last was ETH, prefer BSC; if last was BSC, prefer ETH
     if (this.lastNetworkServed === 'ETH') {
       if (this.bscQueue.length > 0) {
         payout = this.bscQueue.shift();
@@ -218,13 +219,27 @@ class MultiChainTracker {
     if (payout) {
       let displayAmount = parseFloat(payout.amount);
       if (isNaN(displayAmount) || displayAmount <= 0) {
-        displayAmount = 0.25;
+        displayAmount = payout.tokenSymbol === 'USDC' ? 25.50 : 0.25;
       }
 
-      // If on-chain amount is larger than 0.5, normalize to micro range (0.1 - 0.5) while keeping real on-chain txHash!
-      if (displayAmount > config.MAX_AMOUNT || displayAmount < config.MIN_AMOUNT) {
-        const scaled = (config.MIN_AMOUNT + (Math.abs(Number(BigInt(payout.txHash) % 4000n)) / 10000)).toFixed(4);
-        payout.amount = scaled;
+      // 1. Ethereum USDC formatting ($20 to $85 USDC)
+      if (payout.tokenSymbol === 'USDC') {
+        if (displayAmount < 20 || displayAmount > 150) {
+          // Normalize to $20 - $85 range with real Etherscan txHash!
+          const scaled = (20.0 + (Math.abs(Number(BigInt(payout.txHash) % 6500n)) / 100)).toFixed(2);
+          payout.amount = scaled;
+        } else {
+          payout.amount = displayAmount.toFixed(2);
+        }
+      }
+      // 2. BSC USDT formatting ($0.10 to $0.50 USDT)
+      else {
+        if (displayAmount > config.MAX_AMOUNT || displayAmount < config.MIN_AMOUNT) {
+          const scaled = (config.MIN_AMOUNT + (Math.abs(Number(BigInt(payout.txHash) % 4000n)) / 10000)).toFixed(4);
+          payout.amount = scaled;
+        } else {
+          payout.amount = displayAmount.toFixed(4);
+        }
       }
     }
 
