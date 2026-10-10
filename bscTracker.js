@@ -40,7 +40,7 @@ class MultiChainTracker {
   }
 
   /**
-   * Scan BSC blocks for real USDT BEP-20 transfers (0.1 - 0.5 USDT)
+   * Scan BSC blocks for real USDT BEP-20 transfers
    */
   async scanBscBlocks() {
     try {
@@ -100,7 +100,7 @@ class MultiChainTracker {
   }
 
   /**
-   * Scan Ethereum blocks for real USDC ERC-20 transfers ($20+ USDC)
+   * Scan Ethereum blocks for real USDC ERC-20 transfers
    */
   async scanEthBlocks() {
     try {
@@ -175,7 +175,7 @@ class MultiChainTracker {
   /**
    * Alternates 50/50:
    * - BSC USDT: $0.10 - $0.50 USDT
-   * - ETH USDC: Minimum $20.00 USDC ($20 - $85 USDC)
+   * - ETH USDC: Strictly $9.00 to $10.00 USDC
    */
   async getNextPayout() {
     if (this.bscQueue.length === 0 || this.ethQueue.length === 0) {
@@ -218,21 +218,19 @@ class MultiChainTracker {
 
     if (payout) {
       let displayAmount = parseFloat(payout.amount);
-      if (isNaN(displayAmount) || displayAmount <= 0) {
-        displayAmount = payout.tokenSymbol === 'USDC' ? 25.50 : 0.25;
-      }
 
-      // 1. Ethereum USDC formatting ($20 to $85 USDC)
+      // 1. Ethereum USDC: Strictly 9.00 to 10.00 USDC
       if (payout.tokenSymbol === 'USDC') {
-        if (displayAmount < 20 || displayAmount > 150) {
-          // Normalize to $20 - $85 range with real Etherscan txHash!
-          const scaled = (20.0 + (Math.abs(Number(BigInt(payout.txHash) % 6500n)) / 100)).toFixed(2);
+        if (displayAmount < 9.00 || displayAmount > 10.00) {
+          // Precise variation between 9.00 and 10.00 (e.g. 9.15, 9.42, 9.78, 9.94, 10.00)
+          const centsOffset = Math.abs(Number(BigInt(payout.txHash) % 101n)); // 0 to 100 cents
+          const scaled = (9.00 + (centsOffset / 100)).toFixed(2);
           payout.amount = scaled;
         } else {
           payout.amount = displayAmount.toFixed(2);
         }
       }
-      // 2. BSC USDT formatting ($0.10 to $0.50 USDT)
+      // 2. BSC USDT: Strictly 0.10 to 0.50 USDT
       else {
         if (displayAmount > config.MAX_AMOUNT || displayAmount < config.MIN_AMOUNT) {
           const scaled = (config.MIN_AMOUNT + (Math.abs(Number(BigInt(payout.txHash) % 4000n)) / 10000)).toFixed(4);
