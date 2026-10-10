@@ -26,6 +26,8 @@ server.listen(PORT, () => {
   console.log(`🌐 Cloud Health Check Server running on port ${PORT}`);
 });
 
+const https = require('https');
+
 let isBscProcessing = false;
 let isEthProcessing = false;
 
@@ -34,7 +36,12 @@ async function dispatchBscPayout() {
   isBscProcessing = true;
 
   try {
-    const payout = await bscTracker.getNextBscPayout();
+    let payout = await bscTracker.getNextBscPayout();
+    if (!payout) {
+      await bscTracker.scanBscBlocks(100);
+      payout = await bscTracker.getNextBscPayout();
+    }
+
     if (payout) {
       console.log(`[BSC Dispatcher] 📤 Sending: ${payout.amount} USDT (Tx: ${payout.txHash})`);
       await telegramBot.sendPayoutNotification(payout);
@@ -51,7 +58,12 @@ async function dispatchEthPayout() {
   isEthProcessing = true;
 
   try {
-    const payout = await bscTracker.getNextEthPayout();
+    let payout = await bscTracker.getNextEthPayout();
+    if (!payout) {
+      await bscTracker.scanEthBlocks(100);
+      payout = await bscTracker.getNextEthPayout();
+    }
+
     if (payout) {
       console.log(`[ETH Dispatcher] 📤 Sending: ${payout.amount} USDC (Tx: ${payout.txHash})`);
       await telegramBot.sendPayoutNotification(payout);
@@ -62,6 +74,15 @@ async function dispatchEthPayout() {
     isEthProcessing = false;
   }
 }
+
+// 24/7 Keep-Alive self ping so cloud server never goes idle
+setInterval(() => {
+  try {
+    https.get('https://dollarnest-bot.onrender.com', (res) => {
+      res.resume();
+    }).on('error', () => {});
+  } catch (_) {}
+}, 4 * 60 * 1000);
 
 // Background scanner loop every 20s to keep both chain queues populated
 setInterval(async () => {

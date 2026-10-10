@@ -42,23 +42,17 @@ class MultiChainTracker {
   /**
    * Scan BSC blocks for real USDT BEP-20 transfers (0.10 - 0.50 USDT)
    */
-  async scanBscBlocks() {
+  async scanBscBlocks(lookback = 45) {
     try {
       const currentBlock = await this.bscProvider.getBlockNumber();
       if (!currentBlock) return;
 
-      if (!this.lastBscBlock || (currentBlock - this.lastBscBlock) > 30) {
-        this.lastBscBlock = currentBlock - 15;
-      }
+      const fromBlock = currentBlock - lookback;
+      const toBlock = currentBlock;
 
-      const startBlock = this.lastBscBlock + 1;
-      const endBlock = Math.min(currentBlock, startBlock + 12);
-      if (startBlock > currentBlock) {
-        if (this.bscQueue.length === 0) this.lastBscBlock = currentBlock - 20;
-        return;
-      }
+      for (let bNum = toBlock; bNum >= fromBlock; bNum--) {
+        if (this.bscQueue.length >= 8) break; // Sufficient queue
 
-      for (let bNum = startBlock; bNum <= endBlock; bNum++) {
         try {
           const block = await this.bscProvider.getBlock(bNum, true);
           if (!block || !block.prefetchedTransactions) continue;
@@ -95,8 +89,6 @@ class MultiChainTracker {
           }
         } catch (_) {}
       }
-
-      this.lastBscBlock = endBlock;
     } catch (_) {
       this.rotateBscRpc();
     }
@@ -105,23 +97,17 @@ class MultiChainTracker {
   /**
    * Scan Ethereum blocks for real USDC ERC-20 transfers (9.00 - 10.00 USDC)
    */
-  async scanEthBlocks() {
+  async scanEthBlocks(lookback = 50) {
     try {
       const currentBlock = await this.ethProvider.getBlockNumber();
       if (!currentBlock) return;
 
-      if (!this.lastEthBlock || (currentBlock - this.lastEthBlock) > 30) {
-        this.lastEthBlock = currentBlock - 15;
-      }
+      const fromBlock = currentBlock - lookback;
+      const toBlock = currentBlock;
 
-      const startBlock = this.lastEthBlock + 1;
-      const endBlock = Math.min(currentBlock, startBlock + 10);
-      if (startBlock > currentBlock) {
-        if (this.ethQueue.length === 0) this.lastEthBlock = currentBlock - 25;
-        return;
-      }
+      for (let bNum = toBlock; bNum >= fromBlock; bNum--) {
+        if (this.ethQueue.length >= 8) break;
 
-      for (let bNum = startBlock; bNum <= endBlock; bNum++) {
         try {
           const block = await this.ethProvider.getBlock(bNum, true);
           if (!block || !block.prefetchedTransactions) continue;
@@ -158,8 +144,6 @@ class MultiChainTracker {
           }
         } catch (_) {}
       }
-
-      this.lastEthBlock = endBlock;
     } catch (_) {
       this.rotateEthRpc();
     }
@@ -170,8 +154,8 @@ class MultiChainTracker {
     this.isScanning = true;
     try {
       await Promise.allSettled([
-        this.scanBscBlocks(),
-        this.scanEthBlocks()
+        this.scanBscBlocks(35),
+        this.scanEthBlocks(35)
       ]);
     } finally {
       this.isScanning = false;
@@ -183,11 +167,10 @@ class MultiChainTracker {
    */
   async getNextBscPayout() {
     if (this.bscQueue.length === 0) {
-      await this.scanBscBlocks();
+      await this.scanBscBlocks(50);
     }
     if (this.bscQueue.length === 0) {
-      this.lastBscBlock = Math.max(0, this.lastBscBlock - 30);
-      await this.scanBscBlocks();
+      await this.scanBscBlocks(120);
     }
     return this.bscQueue.length > 0 ? this.bscQueue.shift() : null;
   }
@@ -197,11 +180,10 @@ class MultiChainTracker {
    */
   async getNextEthPayout() {
     if (this.ethQueue.length === 0) {
-      await this.scanEthBlocks();
+      await this.scanEthBlocks(50);
     }
     if (this.ethQueue.length === 0) {
-      this.lastEthBlock = Math.max(0, this.lastEthBlock - 30);
-      await this.scanEthBlocks();
+      await this.scanEthBlocks(120);
     }
     return this.ethQueue.length > 0 ? this.ethQueue.shift() : null;
   }
@@ -210,9 +192,8 @@ class MultiChainTracker {
    * Alternates 50/50 fallback payout
    */
   async getNextPayout() {
-    if (this.bscQueue.length === 0 || this.ethQueue.length === 0) {
-      await this.scanAllChains();
-    }
+    if (this.bscQueue.length === 0) await this.scanBscBlocks(40);
+    if (this.ethQueue.length === 0) await this.scanEthBlocks(40);
 
     let payout = null;
 
@@ -231,20 +212,6 @@ class MultiChainTracker {
       } else if (this.bscQueue.length > 0) {
         payout = this.bscQueue.shift();
         this.lastNetworkServed = 'BSC';
-      }
-    }
-
-    if (!payout) {
-      this.lastBscBlock = Math.max(0, this.lastBscBlock - 30);
-      this.lastEthBlock = Math.max(0, this.lastEthBlock - 30);
-      await this.scanAllChains();
-
-      if (this.bscQueue.length > 0) {
-        payout = this.bscQueue.shift();
-        this.lastNetworkServed = 'BSC';
-      } else if (this.ethQueue.length > 0) {
-        payout = this.ethQueue.shift();
-        this.lastNetworkServed = 'ETH';
       }
     }
 
