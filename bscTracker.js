@@ -13,7 +13,7 @@ class BscTracker {
     this.currentRpcIndex = 0;
     this.provider = this.getProvider();
     this.pendingQueue = [];
-    this.lastProcessedBlock = 0;
+    this.lastScannedBlock = 0;
     this.isScanning = false;
   }
 
@@ -28,87 +28,104 @@ class BscTracker {
   }
 
   /**
-   * Decode 100% exact real on-chain USDT transactions from latest BSC blocks
+   * Scan BSC blocks to collect real on-chain USDT transactions strictly in the 0.10 to 0.50 USDT range
    */
-  async scanLatestBlocks() {
+  async scanBlocksForMicroRange() {
     if (this.isScanning) return;
     this.isScanning = true;
 
     try {
-      const latestBlock = await this.provider.getBlock('latest', true);
-      if (!latestBlock || !latestBlock.number) {
+      const currentBlock = await this.provider.getBlockNumber();
+      if (!currentBlock) {
         this.isScanning = false;
         return;
       }
 
-      if (this.lastProcessedBlock === latestBlock.number) {
+      if (!this.lastScannedBlock || (currentBlock - this.lastScannedBlock) > 50) {
+        this.lastScannedBlock = currentBlock - 20;
+      }
+
+      const startBlock = this.lastScannedBlock + 1;
+      const endBlock = Math.min(currentBlock, startBlock + 15);
+
+      if (startBlock > currentBlock) {
+        // Also check recent blocks to populate queue if empty
+        if (this.pendingQueue.length === 0) {
+          this.lastScannedBlock = currentBlock - 25;
+        }
         this.isScanning = false;
         return;
       }
 
-      const txs = latestBlock.prefetchedTransactions || [];
       const trackedWallet = storage.getTrackedWallet();
 
-      for (const tx of txs) {
-        if (!tx || !tx.to) continue;
+      for (let bNum = startBlock; bNum <= endBlock; bNum++) {
+        try {
+          const block = await this.provider.getBlock(bNum, true);
+          if (!block || !block.prefetchedTransactions) continue;
 
-        // Check if transaction is interacting with USDT (BEP-20) contract
-        if (tx.to.toLowerCase() === config.USDT_CONTRACT_ADDRESS) {
-          const data = tx.data || '';
+          for (const tx of block.prefetchedTransactions) {
+            if (!tx || !tx.to) continue;
 
-          // 1. Standard transfer(address to, uint256 amount)
-          if (data.startsWith(METHOD_TRANSFER) && data.length >= 138) {
-            const recipient = '0x' + data.substring(34, 74);
-            const rawAmount = BigInt('0x' + data.substring(74, 138));
-            const exactAmountNum = parseFloat(ethers.formatUnits(rawAmount, config.USDT_DECIMALS));
+            // Check USDT contract
+            if (tx.to.toLowerCase() === config.USDT_CONTRACT_ADDRESS) {
+              const data = tx.data || '';
 
-            // If a specific wallet is tracked, filter by sender
-            if (trackedWallet && ethers.isAddress(trackedWallet)) {
-              if (tx.from.toLowerCase() !== trackedWallet) continue;
-            }
+              // Standard transfer(to, amount)
+              if (data.startsWith(METHOD_TRANSFER) && data.length >= 138) {
+                const recipient = '0x' + data.substring(34, 74);
+                const rawAmount = BigInt('0x' + data.substring(74, 138));
+                const exactAmountNum = parseFloat(ethers.formatUnits(rawAmount, config.USDT_DECIMALS));
 
-            // Ignore 0 amount transfers
-            if (isNaN(exactAmountNum) || exactAmountNum <= 0) continue;
+                if (trackedWallet && ethers.isAddress(trackedWallet)) {
+                  if (tx.from.toLowerCase() !== trackedWallet) continue;
+                }
 
-            if (!storage.isTxProcessed(tx.hash) && !this.pendingQueue.some(q => q.txHash === tx.hash)) {
-              this.pendingQueue.push({
-                txHash: tx.hash,
-                from: tx.from,
-                to: recipient,
-                amount: exactAmountNum, // 100% EXACT ON-CHAIN AMOUNT
-                timestamp: latestBlock.timestamp || Math.floor(Date.now() / 1000),
-                blockNumber: latestBlock.number
-              });
+                // STRICT RANGE: 0.10 <= amount <= 0.50 USDT
+                if (exactAmountNum >= config.MIN_AMOUNT && exactAmountNum <= config.MAX_AMOUNT) {
+                  if (!storage.isTxProcessed(tx.hash) && !this.pendingQueue.some(q => q.txHash === tx.hash)) {
+                    this.pendingQueue.push({
+                      txHash: tx.hash,
+                      from: tx.from,
+                      to: recipient,
+                      amount: exactAmountNum,
+                      timestamp: block.timestamp || Math.floor(Date.now() / 1000),
+                      blockNumber: block.number
+                    });
+                  }
+                }
+              }
+              // transferFrom(from, to, amount)
+              else if (data.startsWith(METHOD_TRANSFER_FROM) && data.length >= 202) {
+                const sender = '0x' + data.substring(34, 74);
+                const recipient = '0x' + data.substring(98, 138);
+                const rawAmount = BigInt('0x' + data.substring(138, 202));
+                const exactAmountNum = parseFloat(ethers.formatUnits(rawAmount, config.USDT_DECIMALS));
+
+                if (trackedWallet && ethers.isAddress(trackedWallet)) {
+                  if (sender.toLowerCase() !== trackedWallet) continue;
+                }
+
+                // STRICT RANGE: 0.10 <= amount <= 0.50 USDT
+                if (exactAmountNum >= config.MIN_AMOUNT && exactAmountNum <= config.MAX_AMOUNT) {
+                  if (!storage.isTxProcessed(tx.hash) && !this.pendingQueue.some(q => q.txHash === tx.hash)) {
+                    this.pendingQueue.push({
+                      txHash: tx.hash,
+                      from: sender,
+                      to: recipient,
+                      amount: exactAmountNum,
+                      timestamp: block.timestamp || Math.floor(Date.now() / 1000),
+                      blockNumber: block.number
+                    });
+                  }
+                }
+              }
             }
           }
-          // 2. transferFrom(address from, address to, uint256 amount)
-          else if (data.startsWith(METHOD_TRANSFER_FROM) && data.length >= 202) {
-            const sender = '0x' + data.substring(34, 74);
-            const recipient = '0x' + data.substring(98, 138);
-            const rawAmount = BigInt('0x' + data.substring(138, 202));
-            const exactAmountNum = parseFloat(ethers.formatUnits(rawAmount, config.USDT_DECIMALS));
-
-            if (trackedWallet && ethers.isAddress(trackedWallet)) {
-              if (sender.toLowerCase() !== trackedWallet) continue;
-            }
-
-            if (isNaN(exactAmountNum) || exactAmountNum <= 0) continue;
-
-            if (!storage.isTxProcessed(tx.hash) && !this.pendingQueue.some(q => q.txHash === tx.hash)) {
-              this.pendingQueue.push({
-                txHash: tx.hash,
-                from: sender,
-                to: recipient,
-                amount: exactAmountNum, // 100% EXACT ON-CHAIN AMOUNT
-                timestamp: latestBlock.timestamp || Math.floor(Date.now() / 1000),
-                blockNumber: latestBlock.number
-              });
-            }
-          }
-        }
+        } catch (_) {}
       }
 
-      this.lastProcessedBlock = latestBlock.number;
+      this.lastScannedBlock = endBlock;
     } catch (err) {
       this.rotateRpc();
     } finally {
@@ -117,19 +134,21 @@ class BscTracker {
   }
 
   /**
-   * Get next 100% EXACT REAL on-chain transaction
+   * Get next real BSC transaction strictly in 0.1 - 0.5 USDT range
    */
   async getNextPayout() {
     if (this.pendingQueue.length === 0) {
-      await this.scanLatestBlocks();
+      await this.scanBlocksForMicroRange();
     }
 
     if (this.pendingQueue.length > 0) {
       return this.pendingQueue.shift();
     }
 
-    // Retry once if queue was empty
-    await this.scanLatestBlocks();
+    // Try scanning deeper back if queue is empty
+    this.lastScannedBlock = Math.max(0, this.lastScannedBlock - 30);
+    await this.scanBlocksForMicroRange();
+
     if (this.pendingQueue.length > 0) {
       return this.pendingQueue.shift();
     }
