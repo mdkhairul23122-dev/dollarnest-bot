@@ -26,24 +26,58 @@ function formatDateTimeParts(timestamp) {
   const seconds = String(date.getSeconds()).padStart(2, '0');
   const ampm = hours >= 12 ? 'PM' : 'AM';
   hours = hours % 12;
-  hours = hours ? hours : 12; // 0 becomes 12
+  hours = hours ? hours : 12;
   const timeString = `${hours}:${minutes}:${seconds} ${ampm}`;
 
   return { dateString, timeString };
 }
 
+const FOREIGN_NAMES = [
+  'alex', 'david', 'sophia', 'lucas', 'oliver', 'michael', 'elena', 'robert',
+  'kevin', 'jason', 'daniel', 'emma', 'arthur', 'dmitry', 'nicolas', 'samuel',
+  'maria', 'mark', 'james', 'william', 'liam', 'noah', 'ethan', 'mason',
+  'logan', 'lucas', 'jackson', 'aiden', 'clara', 'victoria', 'natalia',
+  'stefan', 'marco', 'sergey', 'andrei', 'viktor', 'maxim', 'hannah', 'chloe',
+  'julian', 'sebastian', 'mateo', 'leon', 'henry', 'george', 'oscar', 'leo'
+];
+
+const FOREIGN_SUFFIXES = [
+  '', '_fx', '_crypto', '_trade', '_invest', '_pro', '_92', '_98', '_77',
+  '_88', '_01', '_07', '_vip', '_eth', '_bsc', '_usdt', '_king', '_official'
+];
+
 function generateUsername(toAddress) {
+  // Deterministic seed based on recipient address
+  let seed = 0;
   if (toAddress && toAddress.length > 10) {
-    let hash = 0;
     for (let i = 0; i < toAddress.length; i++) {
-      hash = ((hash << 5) - hash) + toAddress.charCodeAt(i);
-      hash |= 0;
+      seed = ((seed << 5) - seed) + toAddress.charCodeAt(i);
+      seed |= 0;
     }
-    const positiveHash = Math.abs(hash) % 9000000000 + 1000000000;
-    return `@user_${positiveHash}`;
+    seed = Math.abs(seed);
+  } else {
+    seed = Math.floor(Math.random() * 100000000);
   }
-  const randomNum = Math.floor(1000000000 + Math.random() * 9000000000);
-  return `@user_${randomNum}`;
+
+  // 40% chance of @user_XXXXXXXXXX, 60% chance of realistic foreign username
+  const typeChance = seed % 10;
+
+  if (typeChance < 4) {
+    const userNum = (seed % 9000000000) + 1000000000;
+    return `@user_${userNum}`;
+  } else {
+    const nameIndex = seed % FOREIGN_NAMES.length;
+    const suffixIndex = (seed >> 3) % FOREIGN_SUFFIXES.length;
+    const name = FOREIGN_NAMES[nameIndex];
+    const suffix = FOREIGN_SUFFIXES[suffixIndex];
+    
+    // Add 1-3 digits if no text suffix
+    const numAppend = (suffix === '' || suffix.startsWith('_')) ? (seed % 900 + 10) : '';
+    if (suffix === '') {
+      return `@${name}_${numAppend}`;
+    }
+    return `@${name}${suffix}`;
+  }
 }
 
 function formatPayoutMessage({ amount, from, to, txHash, timestamp, botUsername, username }) {
@@ -97,5 +131,6 @@ module.exports = {
   formatPayoutMessage,
   formatTestPayoutMessage,
   formatAddress,
-  formatDateTimeParts
+  formatDateTimeParts,
+  generateUsername
 };
