@@ -58,7 +58,6 @@ function generateUsername(toAddress) {
     seed = Math.floor(Math.random() * 100000000);
   }
 
-  // 50% chance of @user_XXXXXXXXXX, 50% chance of foreign username
   const typeChance = seed % 10;
 
   if (typeChance < 5) {
@@ -87,18 +86,20 @@ function formatPayoutMessage({ amount, from, to, txHash, timestamp, botUsername,
   const userTag = username || generateUsername(to);
   const botTag = botUsername || config.BOT_USERNAME || '@DollarNestInvatorbot';
   const bscScanTxUrl = `https://bscscan.com/tx/${txHash}`;
+  const bscScanReceiverUrl = `https://bscscan.com/address/${to}`;
+  const bscScanSenderUrl = `https://bscscan.com/address/${from || '0x1cc0547688299fa3ad124dc4fee278fdcbd38c10'}`;
 
   const message = [
     `💎 <b>DollarNest | Payout Review</b> 💎`,
     `━━━━━━━━━━━━━━━━━━━━`,
     `🚀 <b>NEW WITHDRAWAL CONFIRMED!</b> ✅`,
     `💚 Successfully Paid via BEP-20`,
-    `👤 <b>Username:</b> <code>${userTag}</code>`,
+    `👤 <b>Username:</b> <a href="${bscScanReceiverUrl}"><b>${userTag}</b></a>`,
     `💰 <b>Amount:</b> <code>${formattedAmount}</code>`,
     `📥 <b>From Wallet:</b>`,
-    `<code>${fromShort}</code>`,
+    `<a href="${bscScanSenderUrl}"><code>${fromShort}</code></a>`,
     `📤 <b>To Wallet:</b>`,
-    `<code>${toShort}</code>`,
+    `<a href="${bscScanReceiverUrl}"><code>${toShort}</code></a>`,
     `🌐 <b>Network:</b> Binance Smart Chain (BEP-20)`,
     `🕒 <b>Date:</b> ${dateString}`,
     `⏰ <b>Time:</b> ${timeString}`,
