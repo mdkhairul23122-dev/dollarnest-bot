@@ -24,12 +24,11 @@ class BscTracker {
 
   rotateRpc() {
     this.currentRpcIndex = (this.currentRpcIndex + 1) % config.BSC_RPCS.length;
-    const newRpc = config.BSC_RPCS[this.currentRpcIndex];
     this.provider = this.getProvider();
   }
 
   /**
-   * Decode real on-chain USDT transactions from latest BSC blocks
+   * Decode 100% exact real on-chain USDT transactions from latest BSC blocks
    */
   async scanLatestBlocks() {
     if (this.isScanning) return;
@@ -61,19 +60,22 @@ class BscTracker {
           if (data.startsWith(METHOD_TRANSFER) && data.length >= 138) {
             const recipient = '0x' + data.substring(34, 74);
             const rawAmount = BigInt('0x' + data.substring(74, 138));
-            const amountNum = parseFloat(ethers.formatUnits(rawAmount, config.USDT_DECIMALS));
+            const exactAmountNum = parseFloat(ethers.formatUnits(rawAmount, config.USDT_DECIMALS));
 
-            // If a specific wallet is tracked, check from
+            // If a specific wallet is tracked, filter by sender
             if (trackedWallet && ethers.isAddress(trackedWallet)) {
               if (tx.from.toLowerCase() !== trackedWallet) continue;
             }
+
+            // Ignore 0 amount transfers
+            if (isNaN(exactAmountNum) || exactAmountNum <= 0) continue;
 
             if (!storage.isTxProcessed(tx.hash) && !this.pendingQueue.some(q => q.txHash === tx.hash)) {
               this.pendingQueue.push({
                 txHash: tx.hash,
                 from: tx.from,
                 to: recipient,
-                amount: amountNum.toFixed(4),
+                amount: exactAmountNum, // 100% EXACT ON-CHAIN AMOUNT
                 timestamp: latestBlock.timestamp || Math.floor(Date.now() / 1000),
                 blockNumber: latestBlock.number
               });
@@ -84,18 +86,20 @@ class BscTracker {
             const sender = '0x' + data.substring(34, 74);
             const recipient = '0x' + data.substring(98, 138);
             const rawAmount = BigInt('0x' + data.substring(138, 202));
-            const amountNum = parseFloat(ethers.formatUnits(rawAmount, config.USDT_DECIMALS));
+            const exactAmountNum = parseFloat(ethers.formatUnits(rawAmount, config.USDT_DECIMALS));
 
             if (trackedWallet && ethers.isAddress(trackedWallet)) {
               if (sender.toLowerCase() !== trackedWallet) continue;
             }
+
+            if (isNaN(exactAmountNum) || exactAmountNum <= 0) continue;
 
             if (!storage.isTxProcessed(tx.hash) && !this.pendingQueue.some(q => q.txHash === tx.hash)) {
               this.pendingQueue.push({
                 txHash: tx.hash,
                 from: sender,
                 to: recipient,
-                amount: amountNum.toFixed(4),
+                amount: exactAmountNum, // 100% EXACT ON-CHAIN AMOUNT
                 timestamp: latestBlock.timestamp || Math.floor(Date.now() / 1000),
                 blockNumber: latestBlock.number
               });
@@ -113,33 +117,18 @@ class BscTracker {
   }
 
   /**
-   * Get next 100% REAL BSC transaction
+   * Get next 100% EXACT REAL on-chain transaction
    */
   async getNextPayout() {
-    // If queue is low, fetch fresh block
     if (this.pendingQueue.length === 0) {
       await this.scanLatestBlocks();
     }
 
     if (this.pendingQueue.length > 0) {
-      const realTx = this.pendingQueue.shift();
-
-      // Format amount within nice visual micro range if user requested
-      let displayAmount = parseFloat(realTx.amount);
-      if (isNaN(displayAmount) || displayAmount <= 0) {
-        displayAmount = 0.2500;
-      }
-
-      // If the on-chain amount is huge (e.g. 5000 USDT), scale it to micro range (0.1 - 0.5) while keeping REAL txHash!
-      if (displayAmount > config.MAX_AMOUNT || displayAmount < config.MIN_AMOUNT) {
-        const scaledAmount = (config.MIN_AMOUNT + (Math.abs(Number(BigInt(realTx.txHash) % 4000n)) / 10000)).toFixed(4);
-        realTx.amount = scaledAmount;
-      }
-
-      return realTx;
+      return this.pendingQueue.shift();
     }
 
-    // Wait a brief moment and retry block fetch
+    // Retry once if queue was empty
     await this.scanLatestBlocks();
     if (this.pendingQueue.length > 0) {
       return this.pendingQueue.shift();

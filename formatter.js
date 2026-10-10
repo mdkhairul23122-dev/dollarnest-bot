@@ -48,7 +48,7 @@ function generateUsername(toAddress) {
 
 function formatPayoutMessage({ amount, from, to, txHash, timestamp, botUsername, username }) {
   const numAmount = parseFloat(amount);
-  const formattedAmount = `${numAmount.toFixed(4)} USDT`;
+  const formattedAmount = `${Number(numAmount.toFixed(4))} USDT`;
   const { dateString, timeString } = formatDateTimeParts(timestamp);
   const fromShort = formatAddress(from || '0x1cc0547688299fa3ad124dc4fee278fdcbd38c10');
   const toShort = formatAddress(to);
