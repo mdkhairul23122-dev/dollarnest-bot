@@ -16,7 +16,10 @@ class TelegramBotManager {
     return String(userId) === String(config.ADMIN_TELEGRAM_ID);
   }
 
-  denyNonAdmin(chatId, userId) {
+  denyNonAdmin(chatId, userId, chatType) {
+    // NEVER send access denied to public channels or groups!
+    if (chatType !== 'private') return;
+
     console.log(`[TelegramBot] ⚠️ Unauthorized command attempt blocked from UID: ${userId}`);
     this.bot.sendMessage(
       chatId,
@@ -43,8 +46,9 @@ class TelegramBotManager {
       console.error('[TelegramBot] Polling Error:', error.code || error.message);
     });
 
-    // Universal message logger
+    // Universal message logger (ignore channel posts from echoing)
     this.bot.on('message', (msg) => {
+      if (msg.chat.type !== 'private') return; // Ignore public channel chatter
       if (msg.text) {
         console.log(`[TelegramBot] 📩 Received msg from @${msg.from?.username || 'Unknown'} (UID: ${msg.from?.id}): "${msg.text}"`);
       }
@@ -52,7 +56,8 @@ class TelegramBotManager {
 
     // /start command
     this.bot.onText(/^\/start(?:@\w+)?(?:\s+.*)?$/i, async (msg) => {
-      if (!this.isAdmin(msg.from.id)) return this.denyNonAdmin(msg.chat.id, msg.from.id);
+      if (msg.chat.type !== 'private') return; // Only in private DM
+      if (!this.isAdmin(msg.from.id)) return this.denyNonAdmin(msg.chat.id, msg.from.id, msg.chat.type);
 
       const chatId = msg.chat.id;
       const trackedWallet = storage.getTrackedWallet();
@@ -98,7 +103,8 @@ class TelegramBotManager {
 
     // /setspeed command
     this.bot.onText(/^\/setspeed(?:@\w+)?(?:\s+(.+))?$/i, async (msg, match) => {
-      if (!this.isAdmin(msg.from.id)) return this.denyNonAdmin(msg.chat.id, msg.from.id);
+      if (msg.chat.type !== 'private') return;
+      if (!this.isAdmin(msg.from.id)) return this.denyNonAdmin(msg.chat.id, msg.from.id, msg.chat.type);
 
       const chatId = msg.chat.id;
       const inputSpeed = parseInt((match[1] || '').trim(), 10);
@@ -122,7 +128,8 @@ class TelegramBotManager {
 
     // /setwallet command
     this.bot.onText(/^\/setwallet(?:@\w+)?(?:\s+(.+))?$/i, async (msg, match) => {
-      if (!this.isAdmin(msg.from.id)) return this.denyNonAdmin(msg.chat.id, msg.from.id);
+      if (msg.chat.type !== 'private') return;
+      if (!this.isAdmin(msg.from.id)) return this.denyNonAdmin(msg.chat.id, msg.from.id, msg.chat.type);
 
       const chatId = msg.chat.id;
       const inputWallet = (match[1] || '').trim();
@@ -168,7 +175,8 @@ class TelegramBotManager {
 
     // /wallet command
     this.bot.onText(/^\/wallet(?:@\w+)?$/i, async (msg) => {
-      if (!this.isAdmin(msg.from.id)) return this.denyNonAdmin(msg.chat.id, msg.from.id);
+      if (msg.chat.type !== 'private') return;
+      if (!this.isAdmin(msg.from.id)) return this.denyNonAdmin(msg.chat.id, msg.from.id, msg.chat.type);
 
       const chatId = msg.chat.id;
       const trackedWallet = storage.getTrackedWallet();
@@ -193,7 +201,8 @@ class TelegramBotManager {
 
     // /balance command
     this.bot.onText(/^\/balance(?:@\w+)?$/i, async (msg) => {
-      if (!this.isAdmin(msg.from.id)) return this.denyNonAdmin(msg.chat.id, msg.from.id);
+      if (msg.chat.type !== 'private') return;
+      if (!this.isAdmin(msg.from.id)) return this.denyNonAdmin(msg.chat.id, msg.from.id, msg.chat.type);
 
       const chatId = msg.chat.id;
       const trackedWallet = storage.getTrackedWallet();
@@ -234,19 +243,22 @@ class TelegramBotManager {
 
     // /test or /testpayout command
     this.bot.onText(/^\/(?:test|testpayout)(?:@\w+)?$/i, async (msg) => {
-      if (!this.isAdmin(msg.from.id)) return this.denyNonAdmin(msg.chat.id, msg.from.id);
+      if (msg.chat.type !== 'private') return;
+      if (!this.isAdmin(msg.from.id)) return this.denyNonAdmin(msg.chat.id, msg.from.id, msg.chat.type);
       await this.handleTestPayout(msg.chat.id);
     });
 
     // /status or /stats command
     this.bot.onText(/^\/(?:status|stats)(?:@\w+)?$/i, async (msg) => {
-      if (!this.isAdmin(msg.from.id)) return this.denyNonAdmin(msg.chat.id, msg.from.id);
+      if (msg.chat.type !== 'private') return;
+      if (!this.isAdmin(msg.from.id)) return this.denyNonAdmin(msg.chat.id, msg.from.id, msg.chat.type);
       await this.handleStatus(msg.chat.id);
     });
 
     // /help command
     this.bot.onText(/^\/help(?:@\w+)?$/i, async (msg) => {
-      if (!this.isAdmin(msg.from.id)) return this.denyNonAdmin(msg.chat.id, msg.from.id);
+      if (msg.chat.type !== 'private') return;
+      if (!this.isAdmin(msg.from.id)) return this.denyNonAdmin(msg.chat.id, msg.from.id, msg.chat.type);
       const helpMsg = [
         `📖 <b>DollarNest Bot Help & Guide</b>`,
         `━━━━━━━━━━━━━━━━━━━━━━━━━`,
