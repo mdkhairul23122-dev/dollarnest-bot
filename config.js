@@ -9,9 +9,8 @@ module.exports = {
   MIN_AMOUNT: parseFloat(process.env.MIN_AMOUNT || '0.1'),
   MAX_AMOUNT: parseFloat(process.env.MAX_AMOUNT || '0.5'),
 
-  // Default Speed: Fast (every 4 seconds = 15 messages/minute)
-  // Can be customized via .env or /setspeed command
-  DEFAULT_POST_INTERVAL_MS: parseInt(process.env.POST_INTERVAL_SECONDS || '4', 10) * 1000, 
+  // Default Speed: 1 to 2 minutes (60 - 90 seconds)
+  DEFAULT_POST_INTERVAL_MS: parseInt(process.env.POST_INTERVAL_SECONDS || '60', 10) * 1000, 
 
   BSCSCAN_API_KEY: process.env.BSCSCAN_API_KEY || '',
   ADMIN_TELEGRAM_ID: process.env.ADMIN_TELEGRAM_ID ? parseInt(process.env.ADMIN_TELEGRAM_ID, 10) : null,
@@ -20,6 +19,10 @@ module.exports = {
   USDT_CONTRACT_ADDRESS: '0x55d398326f99059fF775485246999027B3197955'.toLowerCase(),
   USDT_DECIMALS: 18,
 
+  // Ethereum USDC Contract Details (ERC-20)
+  USDC_ETH_CONTRACT_ADDRESS: '0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48'.toLowerCase(),
+  USDC_ETH_DECIMALS: 6,
+
   // Robust public BSC RPC URLs list
   BSC_RPCS: [
     'https://bsc-dataseed.binance.org/',
@@ -27,6 +30,14 @@ module.exports = {
     'https://bsc-dataseed1.ninicoin.io/',
     'https://binance.llamarpc.com',
     'https://rpc.ankr.com/bsc'
+  ],
+
+  // Robust public Ethereum RPC URLs list
+  ETH_RPCS: [
+    'https://ethereum-rpc.publicnode.com',
+    'https://1rpc.io/eth',
+    'https://rpc.ankr.com/eth',
+    'https://eth.drpc.org'
   ],
 
   // BscScan API Endpoint

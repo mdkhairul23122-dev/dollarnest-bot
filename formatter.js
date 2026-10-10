@@ -1,5 +1,5 @@
 /**
- * DollarNest Telegram Message Formatter (New VIP Layout)
+ * DollarNest Telegram Message Formatter (Multi-Chain: BSC USDT & ETH USDC)
  */
 const config = require('./config');
 
@@ -13,14 +13,12 @@ function formatAddress(address) {
 function formatDateTimeParts(timestamp) {
   const date = timestamp ? new Date(timestamp * 1000) : new Date();
 
-  // Date format: "October 10, 2026"
   const fullMonths = [
     'January', 'February', 'March', 'April', 'May', 'June',
     'July', 'August', 'September', 'October', 'November', 'December'
   ];
   const dateString = `${fullMonths[date.getMonth()]} ${date.getDate()}, ${date.getFullYear()}`;
 
-  // Time format: "6:52:57 PM"
   let hours = date.getHours();
   const minutes = String(date.getMinutes()).padStart(2, '0');
   const seconds = String(date.getSeconds()).padStart(2, '0');
@@ -32,7 +30,7 @@ function formatDateTimeParts(timestamp) {
   return { dateString, timeString };
 }
 
-// 100% Real, Valid, Active Telegram Usernames (Verified International & Crypto community handles)
+// 100% Real, Valid, Active Telegram Usernames
 const REAL_TELEGRAM_USERNAMES = [
   'alexander', 'david_smith', 'michael_brown', 'daniel_crypto', 'james_wilson',
   'john_miller', 'robert_davis', 'william_taylor', 'richard_anderson', 'thomas_thomas',
@@ -61,53 +59,63 @@ const REAL_TELEGRAM_USERNAMES = [
   'julian_c', 'sebastian_v', 'mateo_r', 'leon_s', 'oscar_w', 'leo_messi'
 ];
 
-function generateUsername(toAddress) {
+function generateUsername() {
   const index = Math.floor(Math.random() * REAL_TELEGRAM_USERNAMES.length);
   return `@${REAL_TELEGRAM_USERNAMES[index]}`;
 }
 
-function formatPayoutMessage({ amount, from, to, txHash, timestamp, botUsername, username }) {
+function formatPayoutMessage({ amount, from, to, txHash, timestamp, botUsername, username, network, tokenSymbol, explorerBaseUrl }) {
   const numAmount = parseFloat(amount);
-  const formattedAmount = `${Number(numAmount.toFixed(4))} USDT`;
+  const token = tokenSymbol || 'USDT';
+  const formattedAmount = `${Number(numAmount.toFixed(4))} ${token}`;
   const { dateString, timeString } = formatDateTimeParts(timestamp);
-  const fromShort = formatAddress(from || '0x1cc0547688299fa3ad124dc4fee278fdcbd38c10');
+  const fromShort = formatAddress(from);
   const toShort = formatAddress(to);
-  const userTag = username || generateUsername(to);
+  const userTag = username || generateUsername();
   const botTag = botUsername || config.BOT_USERNAME || '@DollarNestInvatorbot';
-  const bscScanTxUrl = `https://bscscan.com/tx/${txHash}`;
-  const bscScanReceiverUrl = `https://bscscan.com/address/${to}`;
-  const bscScanSenderUrl = `https://bscscan.com/address/${from || '0x1cc0547688299fa3ad124dc4fee278fdcbd38c10'}`;
+  
+  const isEthereum = network && network.toLowerCase().includes('ethereum');
+  const netName = isEthereum ? 'Ethereum (ERC-20)' : 'Binance Smart Chain (BEP-20)';
+  const netProtocol = isEthereum ? 'ERC-20' : 'BEP-20';
+  const explorerName = isEthereum ? 'Etherscan' : 'BscScan';
+  const baseUrl = explorerBaseUrl || (isEthereum ? 'https://etherscan.io' : 'https://bscscan.com');
+  
+  const txUrl = `${baseUrl}/tx/${txHash}`;
+  const receiverUrl = `${baseUrl}/address/${to}`;
+  const senderUrl = `${baseUrl}/address/${from}`;
 
   const message = [
     `💎 <b>DollarNest | Payout Review</b> 💎`,
     `━━━━━━━━━━━━━━━━━━━━`,
     `🚀 <b>NEW WITHDRAWAL CONFIRMED!</b> ✅`,
-    `💚 Successfully Paid via BEP-20`,
+    `💚 Successfully Paid via ${netProtocol}`,
     `👤 <b>Username:</b> ${userTag}`,
     `💰 <b>Amount:</b> <code>${formattedAmount}</code>`,
     `📥 <b>From Wallet:</b>`,
-    `<a href="${bscScanSenderUrl}"><code>${fromShort}</code></a>`,
+    `<a href="${senderUrl}"><code>${fromShort}</code></a>`,
     `📤 <b>To Wallet:</b>`,
-    `<a href="${bscScanReceiverUrl}"><code>${toShort}</code></a>`,
-    `🌐 <b>Network:</b> Binance Smart Chain (BEP-20)`,
+    `<a href="${receiverUrl}"><code>${toShort}</code></a>`,
+    `🌐 <b>Network:</b> ${netName}`,
     `🕒 <b>Date:</b> ${dateString}`,
     `⏰ <b>Time:</b> ${timeString}`,
     `━━━━━━━━━━━━━━━━━━━━`,
-    `🔗 <b>Verify Transaction on BscScan</b>`,
-    `👉 ${bscScanTxUrl}`,
+    `🔗 <b>Verify Transaction on ${explorerName}</b>`,
+    `👉 ${txUrl}`,
     `💸 Fast • Secure • Transparent`,
     `🤖 <b>Official Bot:</b> ${botTag}`,
     `━━━━━━━━━━━━━━━━━━━━`,
     `💎 <b>DollarNest — Your Rewards, Your Success!</b> 🚀`
   ].join('\n');
 
-  return { message, bscScanTxUrl };
+  return { message, txUrl };
 }
 
 function formatTestPayoutMessage() {
   const sampleTx = '0x92bf1aa5281681518ec5d1e94aabada8cfd4df4e123804d63d';
   return formatPayoutMessage({
     amount: '0.2053',
+    tokenSymbol: 'USDT',
+    network: 'Binance Smart Chain (BEP-20)',
     from: '0x1cc0547688299fa3ad124dc4fee278fdcbb32',
     to: '0xaa2845c1234567890abcdef1234567890aa00246',
     txHash: sampleTx,
