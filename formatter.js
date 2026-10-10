@@ -36,7 +36,7 @@ const FOREIGN_NAMES = [
   'alex', 'david', 'sophia', 'lucas', 'oliver', 'michael', 'elena', 'robert',
   'kevin', 'jason', 'daniel', 'emma', 'arthur', 'dmitry', 'nicolas', 'samuel',
   'maria', 'mark', 'james', 'william', 'liam', 'noah', 'ethan', 'mason',
-  'logan', 'lucas', 'jackson', 'aiden', 'clara', 'victoria', 'natalia',
+  'logan', 'jackson', 'aiden', 'clara', 'victoria', 'natalia',
   'stefan', 'marco', 'sergey', 'andrei', 'viktor', 'maxim', 'hannah', 'chloe',
   'julian', 'sebastian', 'mateo', 'leon', 'henry', 'george', 'oscar', 'leo'
 ];
@@ -47,7 +47,6 @@ const FOREIGN_SUFFIXES = [
 ];
 
 function generateUsername(toAddress) {
-  // Deterministic seed based on recipient address
   let seed = 0;
   if (toAddress && toAddress.length > 10) {
     for (let i = 0; i < toAddress.length; i++) {
@@ -59,10 +58,10 @@ function generateUsername(toAddress) {
     seed = Math.floor(Math.random() * 100000000);
   }
 
-  // 40% chance of @user_XXXXXXXXXX, 60% chance of realistic foreign username
+  // 50% chance of @user_XXXXXXXXXX, 50% chance of foreign username
   const typeChance = seed % 10;
 
-  if (typeChance < 4) {
+  if (typeChance < 5) {
     const userNum = (seed % 9000000000) + 1000000000;
     return `@user_${userNum}`;
   } else {
@@ -71,7 +70,6 @@ function generateUsername(toAddress) {
     const name = FOREIGN_NAMES[nameIndex];
     const suffix = FOREIGN_SUFFIXES[suffixIndex];
     
-    // Add 1-3 digits if no text suffix
     const numAppend = (suffix === '' || suffix.startsWith('_')) ? (seed % 900 + 10) : '';
     if (suffix === '') {
       return `@${name}_${numAppend}`;
@@ -95,7 +93,7 @@ function formatPayoutMessage({ amount, from, to, txHash, timestamp, botUsername,
     `━━━━━━━━━━━━━━━━━━━━`,
     `🚀 <b>NEW WITHDRAWAL CONFIRMED!</b> ✅`,
     `💚 Successfully Paid via BEP-20`,
-    `👤 <b>Username:</b> ${userTag}`,
+    `👤 <b>Username:</b> <code>${userTag}</code>`,
     `💰 <b>Amount:</b> <code>${formattedAmount}</code>`,
     `📥 <b>From Wallet:</b>`,
     `<code>${fromShort}</code>`,
