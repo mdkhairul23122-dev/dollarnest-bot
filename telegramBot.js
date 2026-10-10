@@ -32,7 +32,10 @@ class TelegramBotManager {
     // Register Bot Commands Menu with Telegram
     this.bot.setMyCommands([
       { command: 'start', description: 'Start bot & show dashboard' },
-      { command: 'setspeed', description: 'Change post speed (e.g. /setspeed 3)' },
+      { command: 'username', description: 'Set custom usernames (e.g. /username @alex @karim)' },
+      { command: 'usernames', description: 'View currently set custom usernames' },
+      { command: 'resetusernames', description: 'Reset usernames to default' },
+      { command: 'setspeed', description: 'Change post speed (e.g. /setspeed 60)' },
       { command: 'setwallet', description: 'Set BSC Wallet address to track' },
       { command: 'wallet', description: 'View currently tracked wallet' },
       { command: 'balance', description: 'Check USDT & BNB balance' },
@@ -61,18 +64,23 @@ class TelegramBotManager {
 
       const chatId = msg.chat.id;
       const trackedWallet = storage.getTrackedWallet();
+      const customUsernames = storage.getCustomUsernames();
 
       const welcomeMsg = [
         `🤖 <b>DollarNest Payout Tracker Bot</b>`,
         `━━━━━━━━━━━━━━━━━━━━━━━━━`,
         `👑 <b>Admin Authenticated:</b> <code>${msg.from.id}</code> ✅`,
         `🚀 <b>অটো পেমেন্ট পোস্টিং স্পিড:</b> প্রতি <code>${storage.getSpeed()}</code> সেকেন্ডে ১টি পোস্ট`,
+        `👥 <b>কাস্টম ইউজারনেম:</b> <code>${customUsernames.length > 0 ? `${customUsernames.length} টি সেট করা আছে` : 'ডিফল্ট আন্তর্জাতিক তালিকা'}</code>`,
         ``,
         `📍 <b>বর্তমান ট্র্যাকিং ওয়ালেট:</b>`,
         `<code>${trackedWallet || '⚠️ সেট করা হয়নি (সরাসরি লাইভ নেটওয়ার্ক স্ক্যানিং সক্রিয়)'}</code>`,
         ``,
         `📌 <b>কমান্ড তালিকা (Commands):</b>`,
-        `• <code>/setspeed &lt;seconds&gt;</code> - মেসেজ স্পিড পরিবর্তন করুন (যেমন: <code>/setspeed 3</code>)`,
+        `• <code>/username @alex @karim @limon_khan</code> - কাস্টম ইউজারনেম সেট করুন`,
+        `• <code>/usernames</code> - বর্তমান ইউজারনেমগুলো দেখুন`,
+        `• <code>/resetusernames</code> - ইউজারনেম রিসেট করুন`,
+        `• <code>/setspeed &lt;seconds&gt;</code> - মেসেজ স্পিড পরিবর্তন করুন`,
         `• <code>/setwallet &lt;address&gt;</code> - নির্দিষ্ট BSC ওয়ালেট সেট করুন`,
         `• <code>/wallet</code> - বর্তমান ওয়ালেট চেক করুন`,
         `• <code>/balance</code> - ওয়ালেটের USDT ও BNB ব্যালেন্স দেখুন`,
@@ -99,6 +107,72 @@ class TelegramBotManager {
         parse_mode: 'HTML',
         reply_markup: keyboard
       });
+    });
+
+    // /username or /setusername or /usernames command
+    this.bot.onText(/^\/(?:username|usernames|setusername)(?:@\w+)?(?:\s+([\s\S]+))?$/i, async (msg, match) => {
+      if (msg.chat.type !== 'private') return;
+      if (!this.isAdmin(msg.from.id)) return this.denyNonAdmin(msg.chat.id, msg.from.id, msg.chat.type);
+
+      const chatId = msg.chat.id;
+      const inputRaw = (match[1] || '').trim();
+
+      // If no parameters given, show current custom usernames
+      if (!inputRaw) {
+        const currentList = storage.getCustomUsernames();
+        if (currentList.length === 0) {
+          return this.bot.sendMessage(
+            chatId,
+            `ℹ️ <b>কোনো কাস্টম ইউজারনেম সেট করা নেই!</b>\n\nবর্তমানে ডিফল্ট আন্তর্জাতিক ইউজারনেম পুল ব্যবহার হচ্ছে।\n\n<b>নতুন ইউজারনেম সেট করতে লিখুন:</b>\n<code>/username @alex @karim @limon_khan @hasan</code>`,
+            { parse_mode: 'HTML' }
+          );
+        }
+
+        const listStr = currentList.map((u, i) => `${i + 1}. <code>${u}</code>`).join('\n');
+        return this.bot.sendMessage(
+          chatId,
+          `👥 <b>বর্তমানে সেট করা কাস্টম ইউজারনেম (${currentList.length} টি):</b>\n━━━━━━━━━━━━━━━━━━━━━\n${listStr}\n━━━━━━━━━━━━━━━━━━━━━\n\n• পরিবর্তন করতে: <code>/username @user1 @user2 ...</code>\n• ডিফল্ট করতে: <code>/resetusernames</code>`,
+          { parse_mode: 'HTML' }
+        );
+      }
+
+      // Parse list of usernames (supports space, comma, newline)
+      const rawUsernames = inputRaw
+        .split(/[\s,;\n\r]+/)
+        .map(u => u.trim().replace(/^@+/, ''))
+        .filter(u => u.length >= 2);
+
+      if (rawUsernames.length === 0) {
+        return this.bot.sendMessage(
+          chatId,
+          `⚠️ সঠিক ইউজারনেম পাওয়া যায়নি!\n\n<b>উদাহরণ:</b>\n<code>/username @alex @karim @limon_khan</code>`,
+          { parse_mode: 'HTML' }
+        );
+      }
+
+      const saved = storage.setCustomUsernames(rawUsernames);
+      const displaySaved = saved.slice(0, 15).join(', ') + (saved.length > 15 ? ` ... এবং আরও ${saved.length - 15} টি` : '');
+
+      await this.bot.sendMessage(
+        chatId,
+        `✅ <b>মোট ${saved.length} টি ইউজারনেম সফলভাবে সেভ করা হয়েছে!</b> 🎉\n━━━━━━━━━━━━━━━━━━━━━\n${displaySaved}\n━━━━━━━━━━━━━━━━━━━━━\nএখন থেকে চ্যানেলের পেমেন্ট পোস্টে এই ইউজারনেমগুলো ব্যবহার করা হবে। 🚀`,
+        { parse_mode: 'HTML' }
+      );
+    });
+
+    // /resetusernames or /clearusernames command
+    this.bot.onText(/^\/(?:resetusernames|clearusernames|resetusername)(?:@\w+)?$/i, async (msg) => {
+      if (msg.chat.type !== 'private') return;
+      if (!this.isAdmin(msg.from.id)) return this.denyNonAdmin(msg.chat.id, msg.from.id, msg.chat.type);
+
+      const chatId = msg.chat.id;
+      storage.clearCustomUsernames();
+
+      await this.bot.sendMessage(
+        chatId,
+        `🔄 <b>কাস্টম ইউজারনেম মুছে ডিফল্ট ইউজারনেম তালিকা ফিরিয়ে আনা হয়েছে!</b> ✅`,
+        { parse_mode: 'HTML' }
+      );
     });
 
     // /setspeed command

@@ -2,6 +2,7 @@
  * DollarNest Telegram Message Formatter (Multi-Chain: BSC USDT & ETH USDC)
  */
 const config = require('./config');
+const storage = require('./storage');
 
 function formatAddress(address) {
   if (!address) return '0x0000...0000';
@@ -60,6 +61,11 @@ const REAL_TELEGRAM_USERNAMES = [
 ];
 
 function generateUsername() {
+  const customList = storage.getCustomUsernames();
+  if (customList && customList.length > 0) {
+    const index = Math.floor(Math.random() * customList.length);
+    return customList[index];
+  }
   const index = Math.floor(Math.random() * REAL_TELEGRAM_USERNAMES.length);
   return `@${REAL_TELEGRAM_USERNAMES[index]}`;
 }

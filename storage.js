@@ -8,9 +8,10 @@ class Storage {
   constructor() {
     this.data = {
       trackedWallet: config.TRACK_WALLET || '',
-      speedSeconds: 4, // default 4 seconds
+      speedSeconds: 75, // 1 to 2 minutes
       lastCheckedBlock: 0,
       processedTxHashes: [],
+      customUsernames: [],
       payoutCount: 0,
       totalUsdtSent: 0
     };
@@ -25,7 +26,8 @@ class Storage {
         this.data = {
           ...this.data,
           ...parsed,
-          processedTxHashes: Array.isArray(parsed.processedTxHashes) ? parsed.processedTxHashes : []
+          processedTxHashes: Array.isArray(parsed.processedTxHashes) ? parsed.processedTxHashes : [],
+          customUsernames: Array.isArray(parsed.customUsernames) ? parsed.customUsernames : []
         };
       }
       // If config has wallet and storage doesn't, sync from config
@@ -64,6 +66,27 @@ class Storage {
 
   setSpeed(seconds) {
     this.data.speedSeconds = Math.max(1, parseInt(seconds, 10) || 4);
+    this.save();
+  }
+
+  getCustomUsernames() {
+    return Array.isArray(this.data.customUsernames) ? this.data.customUsernames : [];
+  }
+
+  setCustomUsernames(usernames) {
+    if (Array.isArray(usernames)) {
+      this.data.customUsernames = usernames
+        .map(u => String(u).trim().replace(/^@+/, ''))
+        .filter(u => u.length > 0)
+        .map(u => `@${u}`);
+      this.save();
+      return this.data.customUsernames;
+    }
+    return [];
+  }
+
+  clearCustomUsernames() {
+    this.data.customUsernames = [];
     this.save();
   }
 
