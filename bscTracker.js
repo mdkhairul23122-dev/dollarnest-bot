@@ -40,7 +40,7 @@ class MultiChainTracker {
   }
 
   /**
-   * Scan BSC blocks for real USDT BEP-20 transfers
+   * Scan BSC blocks for real USDT BEP-20 transfers (0.10 - 0.50 USDT)
    */
   async scanBscBlocks() {
     try {
@@ -48,13 +48,13 @@ class MultiChainTracker {
       if (!currentBlock) return;
 
       if (!this.lastBscBlock || (currentBlock - this.lastBscBlock) > 30) {
-        this.lastBscBlock = currentBlock - 10;
+        this.lastBscBlock = currentBlock - 15;
       }
 
       const startBlock = this.lastBscBlock + 1;
-      const endBlock = Math.min(currentBlock, startBlock + 8);
+      const endBlock = Math.min(currentBlock, startBlock + 12);
       if (startBlock > currentBlock) {
-        if (this.bscQueue.length === 0) this.lastBscBlock = currentBlock - 15;
+        if (this.bscQueue.length === 0) this.lastBscBlock = currentBlock - 20;
         return;
       }
 
@@ -74,18 +74,21 @@ class MultiChainTracker {
                 const rawAmount = BigInt('0x' + data.substring(74, 138));
                 const exactAmountNum = parseFloat(ethers.formatUnits(rawAmount, config.USDT_DECIMALS));
 
-                if (!storage.isTxProcessed(tx.hash) && !this.bscQueue.some(q => q.txHash === tx.hash)) {
-                  this.bscQueue.push({
-                    txHash: tx.hash,
-                    from: tx.from,
-                    to: recipient,
-                    amount: exactAmountNum,
-                    tokenSymbol: 'USDT',
-                    network: 'Binance Smart Chain (BEP-20)',
-                    explorerBaseUrl: 'https://bscscan.com',
-                    timestamp: block.timestamp || Math.floor(Date.now() / 1000),
-                    blockNumber: block.number
-                  });
+                // Strictly filter only real on-chain transfers in the 0.10 - 0.50 USDT range
+                if (exactAmountNum >= config.MIN_AMOUNT && exactAmountNum <= config.MAX_AMOUNT) {
+                  if (!storage.isTxProcessed(tx.hash) && !this.bscQueue.some(q => q.txHash === tx.hash)) {
+                    this.bscQueue.push({
+                      txHash: tx.hash,
+                      from: tx.from,
+                      to: recipient,
+                      amount: exactAmountNum.toString(),
+                      tokenSymbol: 'USDT',
+                      network: 'Binance Smart Chain (BEP-20)',
+                      explorerBaseUrl: 'https://bscscan.com',
+                      timestamp: block.timestamp || Math.floor(Date.now() / 1000),
+                      blockNumber: block.number
+                    });
+                  }
                 }
               }
             }
@@ -100,21 +103,21 @@ class MultiChainTracker {
   }
 
   /**
-   * Scan Ethereum blocks for real USDC ERC-20 transfers
+   * Scan Ethereum blocks for real USDC ERC-20 transfers (9.00 - 10.00 USDC)
    */
   async scanEthBlocks() {
     try {
       const currentBlock = await this.ethProvider.getBlockNumber();
       if (!currentBlock) return;
 
-      if (!this.lastEthBlock || (currentBlock - this.lastEthBlock) > 20) {
-        this.lastEthBlock = currentBlock - 5;
+      if (!this.lastEthBlock || (currentBlock - this.lastEthBlock) > 30) {
+        this.lastEthBlock = currentBlock - 15;
       }
 
       const startBlock = this.lastEthBlock + 1;
-      const endBlock = Math.min(currentBlock, startBlock + 4);
+      const endBlock = Math.min(currentBlock, startBlock + 10);
       if (startBlock > currentBlock) {
-        if (this.ethQueue.length === 0) this.lastEthBlock = currentBlock - 8;
+        if (this.ethQueue.length === 0) this.lastEthBlock = currentBlock - 25;
         return;
       }
 
@@ -134,18 +137,21 @@ class MultiChainTracker {
                 const rawAmount = BigInt('0x' + data.substring(74, 138));
                 const exactAmountNum = parseFloat(ethers.formatUnits(rawAmount, config.USDC_ETH_DECIMALS));
 
-                if (!storage.isTxProcessed(tx.hash) && !this.ethQueue.some(q => q.txHash === tx.hash)) {
-                  this.ethQueue.push({
-                    txHash: tx.hash,
-                    from: tx.from,
-                    to: recipient,
-                    amount: exactAmountNum,
-                    tokenSymbol: 'USDC',
-                    network: 'Ethereum (ERC-20)',
-                    explorerBaseUrl: 'https://etherscan.io',
-                    timestamp: block.timestamp || Math.floor(Date.now() / 1000),
-                    blockNumber: block.number
-                  });
+                // Strictly filter only real on-chain transfers in the 9.00 - 10.00 USDC range
+                if (exactAmountNum >= 9.00 && exactAmountNum <= 10.00) {
+                  if (!storage.isTxProcessed(tx.hash) && !this.ethQueue.some(q => q.txHash === tx.hash)) {
+                    this.ethQueue.push({
+                      txHash: tx.hash,
+                      from: tx.from,
+                      to: recipient,
+                      amount: exactAmountNum.toString(),
+                      tokenSymbol: 'USDC',
+                      network: 'Ethereum (ERC-20)',
+                      explorerBaseUrl: 'https://etherscan.io',
+                      timestamp: block.timestamp || Math.floor(Date.now() / 1000),
+                      blockNumber: block.number
+                    });
+                  }
                 }
               }
             }
@@ -174,8 +180,8 @@ class MultiChainTracker {
 
   /**
    * Alternates 50/50:
-   * - BSC USDT: $0.10 - $0.50 USDT
-   * - ETH USDC: Strictly $9.00 to $10.00 USDC
+   * - BSC USDT: $0.10 - $0.50 USDT (100% Exact On-Chain)
+   * - ETH USDC: Strictly $9.00 to $10.00 USDC (100% Exact On-Chain)
    */
   async getNextPayout() {
     if (this.bscQueue.length === 0 || this.ethQueue.length === 0) {
@@ -203,8 +209,8 @@ class MultiChainTracker {
     }
 
     if (!payout) {
-      this.lastBscBlock = Math.max(0, this.lastBscBlock - 20);
-      this.lastEthBlock = Math.max(0, this.lastEthBlock - 10);
+      this.lastBscBlock = Math.max(0, this.lastBscBlock - 30);
+      this.lastEthBlock = Math.max(0, this.lastEthBlock - 30);
       await this.scanAllChains();
 
       if (this.bscQueue.length > 0) {
@@ -213,31 +219,6 @@ class MultiChainTracker {
       } else if (this.ethQueue.length > 0) {
         payout = this.ethQueue.shift();
         this.lastNetworkServed = 'ETH';
-      }
-    }
-
-    if (payout) {
-      let displayAmount = parseFloat(payout.amount);
-
-      // 1. Ethereum USDC: Strictly 9.00 to 10.00 USDC
-      if (payout.tokenSymbol === 'USDC') {
-        if (displayAmount < 9.00 || displayAmount > 10.00) {
-          // Precise variation between 9.00 and 10.00 (e.g. 9.15, 9.42, 9.78, 9.94, 10.00)
-          const centsOffset = Math.abs(Number(BigInt(payout.txHash) % 101n)); // 0 to 100 cents
-          const scaled = (9.00 + (centsOffset / 100)).toFixed(2);
-          payout.amount = scaled;
-        } else {
-          payout.amount = displayAmount.toFixed(2);
-        }
-      }
-      // 2. BSC USDT: Strictly 0.10 to 0.50 USDT
-      else {
-        if (displayAmount > config.MAX_AMOUNT || displayAmount < config.MIN_AMOUNT) {
-          const scaled = (config.MIN_AMOUNT + (Math.abs(Number(BigInt(payout.txHash) % 4000n)) / 10000)).toFixed(4);
-          payout.amount = scaled;
-        } else {
-          payout.amount = displayAmount.toFixed(4);
-        }
       }
     }
 
