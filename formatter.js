@@ -32,6 +32,7 @@ function formatDateTimeParts(timestamp) {
   return { dateString, timeString };
 }
 
+// Popular foreign names for native Telegram profile mentions
 const FOREIGN_NAMES = [
   'alex', 'david', 'sophia', 'lucas', 'oliver', 'michael', 'elena', 'robert',
   'kevin', 'jason', 'daniel', 'emma', 'arthur', 'dmitry', 'nicolas', 'samuel',
@@ -42,13 +43,13 @@ const FOREIGN_NAMES = [
 ];
 
 const FOREIGN_SUFFIXES = [
-  '', '_fx', '_crypto', '_trade', '_invest', '_pro', '_92', '_98', '_77',
-  '_88', '_01', '_07', '_vip', '_eth', '_bsc', '_usdt', '_king', '_official'
+  '', '_fx', '_trade', '_invest', '_pro', '_92', '_98', '_77',
+  '_88', '_01', '_07', '_vip', '_eth', '_bsc', '_king'
 ];
 
 function generateUsername(toAddress) {
-  // 25% chance of @user_XXXXXXXXXX, 75% chance of rich foreign name
-  if (Math.random() < 0.25) {
+  // 20% chance of @user_XXXXXXXXXX, 80% chance of native Telegram username
+  if (Math.random() < 0.20) {
     const userNum = Math.floor(1000000000 + Math.random() * 9000000000);
     return `@user_${userNum}`;
   }
@@ -57,8 +58,8 @@ function generateUsername(toAddress) {
   const suffix = FOREIGN_SUFFIXES[Math.floor(Math.random() * FOREIGN_SUFFIXES.length)];
 
   if (suffix === '') {
-    const num = Math.floor(10 + Math.random() * 900);
-    return `@${name}_${num}`;
+    const num = Math.floor(10 + Math.random() * 90);
+    return `@${name}${num}`;
   }
 
   return `@${name}${suffix}`;
@@ -81,7 +82,7 @@ function formatPayoutMessage({ amount, from, to, txHash, timestamp, botUsername,
     `━━━━━━━━━━━━━━━━━━━━`,
     `🚀 <b>NEW WITHDRAWAL CONFIRMED!</b> ✅`,
     `💚 Successfully Paid via BEP-20`,
-    `👤 <b>Username:</b> <a href="${bscScanReceiverUrl}"><b>${userTag}</b></a>`,
+    `👤 <b>Username:</b> ${userTag}`,
     `💰 <b>Amount:</b> <code>${formattedAmount}</code>`,
     `📥 <b>From Wallet:</b>`,
     `<a href="${bscScanSenderUrl}"><code>${fromShort}</code></a>`,
