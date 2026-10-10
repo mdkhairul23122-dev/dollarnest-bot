@@ -47,34 +47,21 @@ const FOREIGN_SUFFIXES = [
 ];
 
 function generateUsername(toAddress) {
-  let seed = 0;
-  if (toAddress && toAddress.length > 10) {
-    for (let i = 0; i < toAddress.length; i++) {
-      seed = ((seed << 5) - seed) + toAddress.charCodeAt(i);
-      seed |= 0;
-    }
-    seed = Math.abs(seed);
-  } else {
-    seed = Math.floor(Math.random() * 100000000);
-  }
-
-  const typeChance = seed % 10;
-
-  if (typeChance < 5) {
-    const userNum = (seed % 9000000000) + 1000000000;
+  // 25% chance of @user_XXXXXXXXXX, 75% chance of rich foreign name
+  if (Math.random() < 0.25) {
+    const userNum = Math.floor(1000000000 + Math.random() * 9000000000);
     return `@user_${userNum}`;
-  } else {
-    const nameIndex = seed % FOREIGN_NAMES.length;
-    const suffixIndex = (seed >> 3) % FOREIGN_SUFFIXES.length;
-    const name = FOREIGN_NAMES[nameIndex];
-    const suffix = FOREIGN_SUFFIXES[suffixIndex];
-    
-    const numAppend = (suffix === '' || suffix.startsWith('_')) ? (seed % 900 + 10) : '';
-    if (suffix === '') {
-      return `@${name}_${numAppend}`;
-    }
-    return `@${name}${suffix}`;
   }
+
+  const name = FOREIGN_NAMES[Math.floor(Math.random() * FOREIGN_NAMES.length)];
+  const suffix = FOREIGN_SUFFIXES[Math.floor(Math.random() * FOREIGN_SUFFIXES.length)];
+
+  if (suffix === '') {
+    const num = Math.floor(10 + Math.random() * 900);
+    return `@${name}_${num}`;
+  }
+
+  return `@${name}${suffix}`;
 }
 
 function formatPayoutMessage({ amount, from, to, txHash, timestamp, botUsername, username }) {
