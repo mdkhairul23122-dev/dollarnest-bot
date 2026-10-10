@@ -1,0 +1,20 @@
+services:
+  - type: web
+    name: dollarnest-payout-bot
+    env: node
+    plan: free
+    buildCommand: npm install
+    startCommand: node index.js
+    envVars:
+      - key: BOT_TOKEN
+        sync: false
+      - key: CHANNEL_ID
+        value: "@DollarNest_Payout"
+      - key: BOT_USERNAME
+        value: "@DollarNestInvatorbot"
+      - key: ADMIN_TELEGRAM_ID
+        value: "8133346948"
+      - key: MIN_AMOUNT
+        value: "0.1"
+      - key: MAX_AMOUNT
+        value: "0.5"
