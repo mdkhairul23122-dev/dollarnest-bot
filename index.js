@@ -8,7 +8,7 @@ console.log('====================================================');
 console.log('🚀 DollarNest USDT (BSC) Payout Bot Starting...');
 console.log(`📢 Target Channel: ${config.CHANNEL_ID}`);
 console.log(`💰 Amount Range: ${config.MIN_AMOUNT} - ${config.MAX_AMOUNT} USDT`);
-console.log(`⚡️ Speed: 1 message every ${storage.getSpeed()} seconds (Change via /setspeed)`);
+console.log(`⏱ Speed: 1 message every 1 to 2 minutes (~${storage.getSpeed()}s)`);
 console.log('====================================================\n');
 
 // Lightweight Health Check Web Server for Free Cloud Hosting (Render, Railway, Koyeb)
@@ -47,27 +47,31 @@ async function dispatchNextPayout() {
   }
 }
 
-// Background scanner loop every 6s to keep queue full
+// Background scanner loop every 15s to keep queue populated
 setInterval(async () => {
   try {
-    await bscTracker.scanNetworkForMicroPayouts();
+    await bscTracker.scanBlocksForMicroRange();
   } catch (_) {}
-}, 6000);
+}, 15000);
 
-// Dynamic loop to support instant speed adjustments
+// Dynamic posting loop with natural 1 to 2 minutes interval
 async function startDynamicPostingLoop() {
   while (true) {
     await dispatchNextPayout();
-    const currentSpeedSeconds = storage.getSpeed();
-    const waitMs = Math.max(1000, currentSpeedSeconds * 1000);
+    const baseSpeed = storage.getSpeed();
+    // Add natural variation so messages dispatch organically between 1 to 2 minutes
+    const randomOffset = Math.floor(Math.random() * 30) - 15;
+    const finalSeconds = Math.max(30, baseSpeed + randomOffset);
+    console.log(`[Dispatcher] ⏳ Next payout message in ${finalSeconds} seconds...`);
+    const waitMs = finalSeconds * 1000;
     await new Promise((resolve) => setTimeout(resolve, waitMs));
   }
 }
 
-// Start loop after 1 second
+// Start loop after 2 seconds
 setTimeout(() => {
   startDynamicPostingLoop();
-}, 1000);
+}, 2000);
 
 // Graceful shutdown handling
 process.on('SIGINT', () => {
