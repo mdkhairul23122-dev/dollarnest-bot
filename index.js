@@ -5,10 +5,9 @@ const bscTracker = require('./bscTracker');
 const telegramBot = require('./telegramBot');
 
 console.log('====================================================');
-console.log('🚀 DollarNest USDT (BSC) Payout Bot Starting...');
+console.log('🚀 DollarNest Multi-Chain (BSC & ETH) Payout Bot Starting...');
 console.log(`📢 Target Channel: ${config.CHANNEL_ID}`);
-console.log(`💰 Amount Range: ${config.MIN_AMOUNT} - ${config.MAX_AMOUNT} USDT`);
-console.log(`⏱ Speed: 1 message every 1 to 2 minutes (~${storage.getSpeed()}s)`);
+console.log(`⏱ Schedule: BSC (USDT) every 2 mins | ETH (USDC) every 30 mins`);
 console.log('====================================================\n');
 
 // Lightweight Health Check Web Server for Free Cloud Hosting (Render, Railway, Koyeb)
@@ -71,14 +70,14 @@ setInterval(async () => {
   } catch (_) {}
 }, 20000);
 
-// BSC USDT posting loop (Every 1 minute ~ 60s)
+// BSC USDT posting loop (Every 2 minutes ~ 120s)
 async function startBscPostingLoop() {
   while (true) {
     await dispatchBscPayout();
-    const baseSpeed = storage.getSpeed() || 60;
+    const bscMinutes = 2; // 2 minutes
     const randomOffset = Math.floor(Math.random() * 20) - 10;
-    const finalSeconds = Math.max(30, baseSpeed + randomOffset);
-    console.log(`[BSC Dispatcher] ⏳ Next BSC USDT post in ${finalSeconds}s (~1 min)...`);
+    const finalSeconds = (bscMinutes * 60) + randomOffset; // ~110s - 130s (2 minutes)
+    console.log(`[BSC Dispatcher] ⏳ Next BSC USDT post in ${finalSeconds}s (~2 min)...`);
     await new Promise((resolve) => setTimeout(resolve, finalSeconds * 1000));
   }
 }
