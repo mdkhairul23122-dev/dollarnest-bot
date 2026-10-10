@@ -27,51 +27,82 @@ server.listen(PORT, () => {
   console.log(`🌐 Cloud Health Check Server running on port ${PORT}`);
 });
 
-let isProcessing = false;
+let isBscProcessing = false;
+let isEthProcessing = false;
 
-async function dispatchNextPayout() {
-  if (isProcessing) return;
-  isProcessing = true;
+async function dispatchBscPayout() {
+  if (isBscProcessing) return;
+  isBscProcessing = true;
 
   try {
-    const payout = await bscTracker.getNextPayout();
-
+    const payout = await bscTracker.getNextBscPayout();
     if (payout) {
-      console.log(`[Dispatcher] 📤 Sending: ${payout.amount} USDT (Tx: ${payout.txHash})`);
+      console.log(`[BSC Dispatcher] 📤 Sending: ${payout.amount} USDT (Tx: ${payout.txHash})`);
       await telegramBot.sendPayoutNotification(payout);
     }
   } catch (err) {
-    console.error('[Dispatcher] Error:', err.message);
+    console.error('[BSC Dispatcher] Error:', err.message);
   } finally {
-    isProcessing = false;
+    isBscProcessing = false;
   }
 }
 
-// Background scanner loop every 15s to keep queue populated
+async function dispatchEthPayout() {
+  if (isEthProcessing) return;
+  isEthProcessing = true;
+
+  try {
+    const payout = await bscTracker.getNextEthPayout();
+    if (payout) {
+      console.log(`[ETH Dispatcher] 📤 Sending: ${payout.amount} USDC (Tx: ${payout.txHash})`);
+      await telegramBot.sendPayoutNotification(payout);
+    }
+  } catch (err) {
+    console.error('[ETH Dispatcher] Error:', err.message);
+  } finally {
+    isEthProcessing = false;
+  }
+}
+
+// Background scanner loop every 20s to keep both chain queues populated
 setInterval(async () => {
   try {
-    await bscTracker.scanBlocksForMicroRange();
+    await bscTracker.scanAllChains();
   } catch (_) {}
-}, 15000);
+}, 20000);
 
-// Dynamic posting loop with natural 1 to 2 minutes interval
-async function startDynamicPostingLoop() {
+// BSC USDT posting loop (Every 1 minute ~ 60s)
+async function startBscPostingLoop() {
   while (true) {
-    await dispatchNextPayout();
-    const baseSpeed = storage.getSpeed();
-    // Add natural variation so messages dispatch organically between 1 to 2 minutes
-    const randomOffset = Math.floor(Math.random() * 30) - 15;
+    await dispatchBscPayout();
+    const baseSpeed = storage.getSpeed() || 60;
+    const randomOffset = Math.floor(Math.random() * 20) - 10;
     const finalSeconds = Math.max(30, baseSpeed + randomOffset);
-    console.log(`[Dispatcher] ⏳ Next payout message in ${finalSeconds} seconds...`);
-    const waitMs = finalSeconds * 1000;
-    await new Promise((resolve) => setTimeout(resolve, waitMs));
+    console.log(`[BSC Dispatcher] ⏳ Next BSC USDT post in ${finalSeconds}s (~1 min)...`);
+    await new Promise((resolve) => setTimeout(resolve, finalSeconds * 1000));
   }
 }
 
-// Start loop after 2 seconds
+// Ethereum USDC posting loop (Strictly every 30 minutes)
+async function startEthPostingLoop() {
+  // First ETH post after 3 minutes so it doesn't clash at initial boot
+  await new Promise((resolve) => setTimeout(resolve, 3 * 60 * 1000));
+
+  while (true) {
+    await dispatchEthPayout();
+    const ethMinutes = 30; // 30 minutes
+    const randomOffsetSec = Math.floor(Math.random() * 60) - 30;
+    const finalSeconds = (ethMinutes * 60) + randomOffsetSec;
+    console.log(`[ETH Dispatcher] ⏳ Next Ethereum USDC post in ${(finalSeconds / 60).toFixed(1)} minutes...`);
+    await new Promise((resolve) => setTimeout(resolve, finalSeconds * 1000));
+  }
+}
+
+// Start both posting loops after 3 seconds
 setTimeout(() => {
-  startDynamicPostingLoop();
-}, 2000);
+  startBscPostingLoop();
+  startEthPostingLoop();
+}, 3000);
 
 // Graceful shutdown handling
 process.on('SIGINT', () => {

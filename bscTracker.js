@@ -179,9 +179,35 @@ class MultiChainTracker {
   }
 
   /**
-   * Alternates 50/50:
-   * - BSC USDT: $0.10 - $0.50 USDT (100% Exact On-Chain)
-   * - ETH USDC: Strictly $9.00 to $10.00 USDC (100% Exact On-Chain)
+   * Get Next BSC USDT Payout ($0.10 - $0.50 USDT)
+   */
+  async getNextBscPayout() {
+    if (this.bscQueue.length === 0) {
+      await this.scanBscBlocks();
+    }
+    if (this.bscQueue.length === 0) {
+      this.lastBscBlock = Math.max(0, this.lastBscBlock - 30);
+      await this.scanBscBlocks();
+    }
+    return this.bscQueue.length > 0 ? this.bscQueue.shift() : null;
+  }
+
+  /**
+   * Get Next Ethereum USDC Payout ($9.00 - $10.00 USDC)
+   */
+  async getNextEthPayout() {
+    if (this.ethQueue.length === 0) {
+      await this.scanEthBlocks();
+    }
+    if (this.ethQueue.length === 0) {
+      this.lastEthBlock = Math.max(0, this.lastEthBlock - 30);
+      await this.scanEthBlocks();
+    }
+    return this.ethQueue.length > 0 ? this.ethQueue.shift() : null;
+  }
+
+  /**
+   * Alternates 50/50 fallback payout
    */
   async getNextPayout() {
     if (this.bscQueue.length === 0 || this.ethQueue.length === 0) {
