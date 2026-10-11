@@ -62,24 +62,50 @@ const REAL_TELEGRAM_USERNAMES = [
   'julian_c', 'sebastian_v', 'mateo_r', 'leon_s', 'oscar_w', 'leo_messi'
 ];
 
+// Common name and handle prefixes for dynamic generation
+const TELEGRAM_PREFIXES = [
+  'Dk', 'Al', 'Sk', 'Md', 'Jo', 'Ro', 'Ka', 'Ta', 'Ha', 'Sa',
+  'Cr', 'Mr', 'Mi', 'Da', 'Em', 'So', 'Ol', 'Ch', 'Ma', 'Lu',
+  'Vi', 'An', 'St', 'Ke', 'Ra', 'Sh', 'Ar', 'Fa', 'Ze', 'Ni',
+  'dk', 'al', 'sk', 'md', 'jo', 'ro', 'ka', 'ta', 'ha', 'sa'
+];
+
+const TELEGRAM_LETTER_SUFFIXES = [
+  'vt', 'th', 'rt', 'wn', 'to', 'im', 'an', 'ny', 'el', 'ra',
+  'ia', 'is', 'va', 'te', 'er', 'ex', 'in', 'on', 'us', 'dy'
+];
+
 /**
- * Mask username into format: @xx**yy (e.g. @al**vt, @da**th, @ka**im, @ro**rt)
+ * Mask username into formats:
+ * - Number ending: @Dk***54, @Al***92, @Sk***77
+ * - Letter ending: @al**vt, @da**th, @ka**im
  */
 function maskUsername(username) {
-  if (!username) return '@al**vt';
+  if (!username) return '@Dk***54';
   let clean = String(username).trim();
   if (!clean.startsWith('@')) clean = '@' + clean;
 
-  // If already masked (contains *), keep as is
+  // If already masked (contains *), keep as is (e.g. @Dk***54 or @al**vt)
   if (clean.includes('*')) {
     return clean;
   }
 
-  // Extract clean alphanumeric handle
-  let handle = clean.slice(1).replace(/[^a-zA-Z0-9]/g, '');
-  if (!handle) return '@al**vt';
+  // Extract clean alphanumeric characters
+  const raw = clean.slice(1).replace(/[^a-zA-Z0-9]/g, '');
+  if (!raw) return '@Dk***54';
 
-  // If handle is shorter than 4 characters, pad with 'vt'
+  // Check if username ends with digits (e.g. Dk54, alex99, user07)
+  const numMatch = raw.match(/^([a-zA-Z]+)(\d+)$/);
+  if (numMatch) {
+    const letters = numMatch[1];
+    const digits = numMatch[2];
+    const prefix = letters.length >= 2 ? letters.slice(0, 2) : (letters + 'x');
+    const suffix = digits.length >= 2 ? digits.slice(-2) : ('0' + digits);
+    return `@${prefix}***${suffix}`;
+  }
+
+  // Pure letters or general handles (e.g. alexvt -> @al**vt)
+  let handle = raw;
   if (handle.length < 4) {
     handle = handle + 'vt';
   }
@@ -90,7 +116,7 @@ function maskUsername(username) {
 }
 
 /**
- * Generate a random masked username like @al**vt
+ * Generate a random masked username (both @Dk***54 number-based and @al**vt letter-based)
  */
 function generateUsername() {
   const customList = storage.getCustomUsernames();
@@ -98,8 +124,24 @@ function generateUsername() {
     const index = Math.floor(Math.random() * customList.length);
     return maskUsername(customList[index]);
   }
-  const index = Math.floor(Math.random() * REAL_TELEGRAM_USERNAMES.length);
-  return maskUsername(REAL_TELEGRAM_USERNAMES[index]);
+
+  // 60% chance of number ending (like @Dk***54), 40% chance of letter ending (like @al**vt)
+  const isNumberType = Math.random() < 0.6;
+  const prefix = TELEGRAM_PREFIXES[Math.floor(Math.random() * TELEGRAM_PREFIXES.length)];
+
+  if (isNumberType) {
+    const num = Math.floor(Math.random() * 90) + 10; // 10 to 99
+    return `@${prefix}***${num}`;
+  }
+
+  // Letter ending: either pick from REAL_TELEGRAM_USERNAMES or dynamic suffix
+  if (Math.random() < 0.5) {
+    const suffix = TELEGRAM_LETTER_SUFFIXES[Math.floor(Math.random() * TELEGRAM_LETTER_SUFFIXES.length)];
+    return `@${prefix.toLowerCase()}**${suffix}`;
+  } else {
+    const index = Math.floor(Math.random() * REAL_TELEGRAM_USERNAMES.length);
+    return maskUsername(REAL_TELEGRAM_USERNAMES[index]);
+  }
 }
 
 function formatPayoutMessage({ amount, from, to, txHash, timestamp, botUsername, username, network, tokenSymbol, explorerBaseUrl }) {
