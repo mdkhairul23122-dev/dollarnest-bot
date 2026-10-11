@@ -31,8 +31,9 @@ function formatDateTimeParts(timestamp) {
   return { dateString, timeString };
 }
 
-// 100% Real, Valid, Active Telegram Usernames
+// 100% Real, Diverse Telegram Usernames Pool
 const REAL_TELEGRAM_USERNAMES = [
+  'alexvt', 'davidvt', 'samvt', 'johnvt', 'brianvt', 'markvt', 'kevinvt', 'danvt',
   'alexander', 'david_smith', 'michael_brown', 'daniel_crypto', 'james_wilson',
   'john_miller', 'robert_davis', 'william_taylor', 'richard_anderson', 'thomas_thomas',
   'charles_jackson', 'christopher_white', 'matthew_harris', 'anthony_clark', 'mark_lewis',
@@ -56,18 +57,49 @@ const REAL_TELEGRAM_USERNAMES = [
   'elena_petrova', 'sophia_williams', 'olivia_davis', 'emma_johnson', 'ava_brown',
   'isabella_jones', 'mia_miller', 'clara_wilson', 'natalia_k', 'victoria_secret',
   'anna_k', 'maria_garcia', 'chloe_smith', 'hannah_montana', 'zoe_kraus',
+  'karim_khan', 'tanvir_ahmed', 'hasan_ali', 'rahim_crypto', 'arif_hossain',
   'stefan_m', 'marco_polo', 'sergey_b', 'andrei_t', 'viktor_k', 'maxim_g',
   'julian_c', 'sebastian_v', 'mateo_r', 'leon_s', 'oscar_w', 'leo_messi'
 ];
 
+/**
+ * Mask username into format: @xx**yy (e.g. @al**vt, @da**th, @ka**im, @ro**rt)
+ */
+function maskUsername(username) {
+  if (!username) return '@al**vt';
+  let clean = String(username).trim();
+  if (!clean.startsWith('@')) clean = '@' + clean;
+
+  // If already masked (contains *), keep as is
+  if (clean.includes('*')) {
+    return clean;
+  }
+
+  // Extract clean alphanumeric handle
+  let handle = clean.slice(1).replace(/[^a-zA-Z0-9]/g, '');
+  if (!handle) return '@al**vt';
+
+  // If handle is shorter than 4 characters, pad with 'vt'
+  if (handle.length < 4) {
+    handle = handle + 'vt';
+  }
+
+  const prefix = handle.slice(0, 2);
+  const suffix = handle.slice(-2);
+  return `@${prefix}**${suffix}`;
+}
+
+/**
+ * Generate a random masked username like @al**vt
+ */
 function generateUsername() {
   const customList = storage.getCustomUsernames();
   if (customList && customList.length > 0) {
     const index = Math.floor(Math.random() * customList.length);
-    return customList[index];
+    return maskUsername(customList[index]);
   }
   const index = Math.floor(Math.random() * REAL_TELEGRAM_USERNAMES.length);
-  return `@${REAL_TELEGRAM_USERNAMES[index]}`;
+  return maskUsername(REAL_TELEGRAM_USERNAMES[index]);
 }
 
 function formatPayoutMessage({ amount, from, to, txHash, timestamp, botUsername, username, network, tokenSymbol, explorerBaseUrl }) {
@@ -77,7 +109,7 @@ function formatPayoutMessage({ amount, from, to, txHash, timestamp, botUsername,
   const { dateString, timeString } = formatDateTimeParts(timestamp);
   const fromShort = formatAddress(from);
   const toShort = formatAddress(to);
-  const userTag = username || generateUsername();
+  const userTag = maskUsername(username || generateUsername());
   const botTag = botUsername || config.BOT_USERNAME || '@DollarNestInvatorbot';
   
   const isEthereum = network && network.toLowerCase().includes('ethereum');
@@ -134,5 +166,6 @@ module.exports = {
   formatTestPayoutMessage,
   formatAddress,
   formatDateTimeParts,
-  generateUsername
+  generateUsername,
+  maskUsername
 };

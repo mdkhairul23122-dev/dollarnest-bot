@@ -32,7 +32,7 @@ class TelegramBotManager {
     // Register Bot Commands Menu with Telegram
     this.bot.setMyCommands([
       { command: 'start', description: 'Start bot & show dashboard' },
-      { command: 'username', description: 'Set custom usernames (e.g. /username @alex @karim)' },
+      { command: 'username', description: 'Set custom usernames (e.g. /username @al**vt @ka**im)' },
       { command: 'usernames', description: 'View currently set custom usernames' },
       { command: 'resetusernames', description: 'Reset usernames to default' },
       { command: 'setspeed', description: 'Change post speed (e.g. /setspeed 60)' },
@@ -77,7 +77,7 @@ class TelegramBotManager {
         `<code>${trackedWallet || '⚠️ সেট করা হয়নি (সরাসরি লাইভ নেটওয়ার্ক স্ক্যানিং সক্রিয়)'}</code>`,
         ``,
         `📌 <b>কমান্ড তালিকা (Commands):</b>`,
-        `• <code>/username @alex @karim @limon_khan</code> - কাস্টম ইউজারনেম সেট করুন`,
+        `• <code>/username @al**vt @ka**im @li**an</code> - কাস্টম ইউজারনেম সেট করুন`,
         `• <code>/usernames</code> - বর্তমান ইউজারনেমগুলো দেখুন`,
         `• <code>/resetusernames</code> - ইউজারনেম রিসেট করুন`,
         `• <code>/setspeed &lt;seconds&gt;</code> - মেসেজ স্পিড পরিবর্তন করুন`,
@@ -123,7 +123,7 @@ class TelegramBotManager {
         if (currentList.length === 0) {
           return this.bot.sendMessage(
             chatId,
-            `ℹ️ <b>কোনো কাস্টম ইউজারনেম সেট করা নেই!</b>\n\nবর্তমানে ডিফল্ট আন্তর্জাতিক ইউজারনেম পুল ব্যবহার হচ্ছে।\n\n<b>নতুন ইউজারনেম সেট করতে লিখুন:</b>\n<code>/username @alex @karim @limon_khan @hasan</code>`,
+            `ℹ️ <b>কোনো কাস্টম ইউজারনেম সেট করা নেই!</b>\n\nবর্তমানে ডিফল্ট র্যান্ডম ইউজারনেম পুল ব্যবহার হচ্ছে (@al**vt ফরম্যাটে)।\n\n<b>নতুন ইউজারনেম সেট করতে লিখুন:</b>\n<code>/username @al**vt @ka**im @da**id @ro**rt</code>`,
             { parse_mode: 'HTML' }
           );
         }
@@ -131,7 +131,7 @@ class TelegramBotManager {
         const listStr = currentList.map((u, i) => `${i + 1}. <code>${u}</code>`).join('\n');
         return this.bot.sendMessage(
           chatId,
-          `👥 <b>বর্তমানে সেট করা কাস্টম ইউজারনেম (${currentList.length} টি):</b>\n━━━━━━━━━━━━━━━━━━━━━\n${listStr}\n━━━━━━━━━━━━━━━━━━━━━\n\n• পরিবর্তন করতে: <code>/username @user1 @user2 ...</code>\n• ডিফল্ট করতে: <code>/resetusernames</code>`,
+          `👥 <b>বর্তমানে সেট করা কাস্টম ইউজারনেম (${currentList.length} টি):</b>\n━━━━━━━━━━━━━━━━━━━━━\n${listStr}\n━━━━━━━━━━━━━━━━━━━━━\n\n• পরিবর্তন করতে: <code>/username @al**vt @ka**im ...</code>\n• ডিফল্ট করতে: <code>/resetusernames</code>`,
           { parse_mode: 'HTML' }
         );
       }
@@ -145,7 +145,7 @@ class TelegramBotManager {
       if (rawUsernames.length === 0) {
         return this.bot.sendMessage(
           chatId,
-          `⚠️ সঠিক ইউজারনেম পাওয়া যায়নি!\n\n<b>উদাহরণ:</b>\n<code>/username @alex @karim @limon_khan</code>`,
+          `⚠️ সঠিক ইউজারনেম পাওয়া যায়নি!\n\n<b>উদাহরণ:</b>\n<code>/username @al**vt @ka**im @da**id</code>`,
           { parse_mode: 'HTML' }
         );
       }
